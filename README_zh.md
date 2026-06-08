@@ -13,13 +13,13 @@
 - **工具自动执行** — 所有工具无需手动审批，无缝运行
 - 通过微信与 Claude Code 进行文字对话
 - 语音消息——自动转文字（微信自带语音识别）
-- 文件和视频通知——文件名和视频提醒转发给 Claude
+- 文件支持——下载解密文件，让 Claude 读取并分析
 - 图片识别——发送照片让 Claude 分析
 - 斜杠命令——`/help`、`/clear`、`/model`、`/prompt`、`/status`、`/skills` 等
 - 在微信中触发任意已安装的 Claude Code Skill
 - 跨平台——macOS（launchd）、Linux（systemd + nohup 回退）
 - 会话持久化——跨消息恢复上下文
-- 限频保护——微信 API 限频时自动指数退避重试
+- 限频保护——per-user 主动限速 + 自动重试
 
 ## 前置条件
 
@@ -101,7 +101,7 @@ npm run daemon -- logs     # 查看最近日志
 
 - 守护进程通过长轮询监听微信 ilink bot API 的新消息
 - 消息通过 `@anthropic-ai/claude-agent-sdk` 转发给 Claude Code
-- 工具调用和思考摘要在 Claude 工作时实时推送
+- 工具调用在 Claude 工作时后台静默执行
 - Claude 的文字输出实时流式发送到微信，工具调用静默执行
 - 回复发送回微信，限频时自动重试
 - 平台原生服务管理保持守护进程运行（macOS 使用 launchd，Linux 使用 systemd/nohup）

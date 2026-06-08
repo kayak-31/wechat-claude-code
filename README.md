@@ -13,13 +13,13 @@ A [Claude Code](https://claude.ai/claude-code) Skill that bridges personal WeCha
 - **Auto-approved tool access** — all tools run without manual approval for seamless operation
 - Text conversation with Claude Code through WeChat
 - Voice messages — speech-to-text automatically via WeChat
-- File & video notifications — file names and video alerts forwarded to Claude
+- File support — download, decrypt, and forward files for Claude to read and analyze
 - Image recognition — send photos for Claude to analyze
 - Slash commands — `/help`, `/clear`, `/model`, `/prompt`, `/status`, `/skills`, and more
 - Launch any installed Claude Code skill from WeChat
 - Cross-platform — macOS (launchd), Linux (systemd + nohup fallback)
 - Session persistence — resume conversations across messages
-- Rate-limit safe — automatic exponential backoff on WeChat API throttling
+- Rate-limit safe — proactive per-user send throttling with automatic retry
 
 ## Prerequisites
 
@@ -101,7 +101,7 @@ WeChat (phone) ←→ ilink bot API ←→ Node.js daemon ←→ Claude Code SDK
 
 - The daemon long-polls WeChat's ilink bot API for new messages
 - Messages are forwarded to Claude Code via `@anthropic-ai/claude-agent-sdk`
-- Tool calls and thinking previews are streamed back as Claude works
+- Tool calls run silently in the background while Claude works
 - Claude's text output is streamed to WeChat in real-time; tool calls run silently
 - Responses are sent back to WeChat with automatic rate-limit retry
 - Platform-native service management keeps the daemon running (launchd on macOS, systemd/nohup on Linux)
