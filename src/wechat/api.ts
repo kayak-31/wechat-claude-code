@@ -2,6 +2,8 @@ import type {
   GetUpdatesResp,
   SendMessageReq,
   GetUploadUrlResp,
+  SendTypingReq,
+  GetConfigResp,
 } from './types.js';
 import { logger } from '../logger.js';
 
@@ -126,6 +128,20 @@ export class WeChatApi {
       }
       return;
     }
+  }
+
+  /** Fetch bot config (includes typing_ticket). */
+  async getConfig(ilinkUserId: string, contextToken?: string): Promise<GetConfigResp> {
+    return this.request<GetConfigResp>(
+      'ilink/bot/getconfig',
+      { ilink_user_id: ilinkUserId, context_token: contextToken },
+      10_000,
+    );
+  }
+
+  /** Send a typing indicator to a user. */
+  async sendTyping(req: SendTypingReq): Promise<void> {
+    await this.request('ilink/bot/sendtyping', req, 10_000);
   }
 
   /** Get a presigned upload URL for media files. */

@@ -336,8 +336,8 @@ async function sendToClaude(
   // Record user message in chat history
   sessionStore.addChatMessage(session, 'user', userText || '(图片)');
 
-  // Trigger WeChat typing indicator (fire-and-forget — cosmetic only)
-  sender.sendGenerating(fromUserId, contextToken).catch(() => {});
+  // Start typing indicator (keepalive until stopTyping is called)
+  const stopTyping = sender.startTyping(fromUserId, contextToken);
 
   try {
     // Download image if present
@@ -441,6 +441,7 @@ async function sendToClaude(
     session.state = 'idle';
     sessionStore.save(account.accountId, session);
   } finally {
+    stopTyping();
     // Clean up the abort controller if it's still ours
     if (activeControllers.get(account.accountId) === abortController) {
       activeControllers.delete(account.accountId);

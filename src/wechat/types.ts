@@ -114,6 +114,25 @@ export interface SendMessageReq {
   msg: OutboundMessage;
 }
 
+// ── Typing API ──────────────────────────────────────────────────────────────
+
+export const TypingStatus = {
+  TYPING: 1,
+  CANCEL: 2,
+} as const;
+
+export interface SendTypingReq {
+  ilink_user_id: string;
+  typing_ticket: string;
+  status: number;
+}
+
+export interface GetConfigResp {
+  ret?: number;
+  errmsg?: string;
+  typing_ticket?: string;
+}
+
 // ── GetUploadUrl API ────────────────────────────────────────────────────────
 
 export interface GetUploadUrlReq {
