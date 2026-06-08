@@ -336,6 +336,9 @@ async function sendToClaude(
   // Record user message in chat history
   sessionStore.addChatMessage(session, 'user', userText || '(图片)');
 
+  // Trigger WeChat typing indicator
+  await sender.sendGenerating(fromUserId, contextToken);
+
   try {
     // Download image if present
     let images: QueryOptions['images'];
@@ -358,23 +361,8 @@ async function sendToClaude(
       }
     }
 
-    // Separate buffers: tool status vs actual text output
-    let toolBuffer: string[] = [];
     let textBuffer = '';
-    let lastStatusSent = '';
     let anySent = false;
-    const MAX_TOOL_BUFFER = 8;
-
-    // Send a compact status line from accumulated tool calls
-    async function flushToolStatus(): Promise<void> {
-      if (toolBuffer.length === 0) return;
-      const status = toolBuffer.join('\n');
-      toolBuffer = [];
-      if (status === lastStatusSent) return;
-      lastStatusSent = status;
-      anySent = true;
-      await sender.sendText(fromUserId, contextToken, status);
-    }
 
     // Send accumulated text output
     async function flushText(): Promise<void> {
@@ -397,14 +385,7 @@ async function sendToClaude(
       abortController,
       images,
       onText: async (delta: string) => {
-        // New text arriving → flush any pending tool status first, then buffer text
-        if (toolBuffer.length > 0) await flushToolStatus();
         textBuffer += delta;
-      },
-      onThinking: async (summary: string) => {
-        // Buffer tool calls; flush when threshold reached
-        toolBuffer.push(summary);
-        if (toolBuffer.length >= MAX_TOOL_BUFFER) await flushToolStatus();
       },
     };
 
@@ -421,7 +402,6 @@ async function sendToClaude(
     }
 
     // Flush any remaining buffered content
-    await flushToolStatus();
     await flushText();
 
     // Send result back to WeChat

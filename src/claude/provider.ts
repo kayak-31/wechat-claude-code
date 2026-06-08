@@ -27,8 +27,6 @@ export interface QueryOptions {
   }>;
   /** Called each time an assistant text chunk is produced (e.g. before/after tool calls). */
   onText?: (text: string) => Promise<void> | void;
-  /** Called when Claude invokes a tool, with a human-readable summary. */
-  onThinking?: (summary: string) => Promise<void> | void;
   /** Optional abort controller to cancel the query (e.g. when user sends a new message). */
   abortController?: AbortController;
 }
@@ -42,55 +40,6 @@ export interface QueryResult {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Tools that should be hidden from the user (internal bookkeeping).
- */
-const HIDDEN_TOOLS = new Set([
-  'TodoWrite', 'TodoRead', 'Task', 'Agent',
-]);
-
-/**
- * Extract MCP service name: mcp__zread__read_file → zread
- */
-function getMcpServiceName(name: string): string | null {
-  if (!name.startsWith('mcp__')) return null;
-  const parts = name.split('__');
-  return parts.length >= 3 ? parts[1] : null;
-}
-
-/**
- * Format a tool_use block into a concise human-readable summary.
- */
-function formatToolUse(toolName: string, input: Record<string, unknown>): string | null {
-  if (HIDDEN_TOOLS.has(toolName)) return null;
-
-  // MCP tools: simple "调用 xxx MCP"
-  const mcpService = getMcpServiceName(toolName);
-  if (mcpService) {
-    return `▸ 调用 ${mcpService} MCP`;
-  }
-
-  const labels: Record<string, string> = {
-    Bash: "执行", Read: "读取", Write: "写入", Edit: "编辑", MultiEdit: "编辑",
-    Grep: "搜索", Glob: "搜索", WebFetch: "抓取", WebSearch: "搜索",
-    Skill: "使用",
-  };
-  const label = labels[toolName] ?? "调用";
-
-  let detail = "";
-  if (input.command) detail = String(input.command).slice(0, 60);
-  else if (input.file_path) {
-    const p = String(input.file_path);
-    detail = p.split('/').slice(-2).join('/');
-  }
-  else if (input.url) detail = String(input.url).slice(0, 60);
-  else if (input.query) detail = String(input.query).slice(0, 50);
-  else if (input.pattern) detail = String(input.pattern).slice(0, 50);
-  else if (input.search_query) detail = String(input.search_query).slice(0, 50);
-
-  return detail ? `▸ ${label} ${detail}` : `▸ ${label} ${toolName}`;
-}
 
 /**
  * Extract accumulated text from an SDK assistant message's content blocks.
@@ -193,7 +142,6 @@ export async function claudeQuery(options: QueryOptions): Promise<QueryResult> {
     systemPrompt,
     images,
     onText,
-    onThinking,
     abortController,
   } = options;
 
@@ -256,22 +204,6 @@ export async function claudeQuery(options: QueryOptions): Promise<QueryResult> {
       switch (message.type) {
         case "assistant": {
           const aMsg = message as SDKAssistantMessage;
-          const content = aMsg.message?.content;
-          // Extract tool_use blocks and notify onThinking
-          if (onThinking) {
-            if (Array.isArray(content)) {
-              for (const block of content) {
-                if ((block as any).type === "tool_use") {
-                  const summary = formatToolUse(
-                    (block as any).name ?? "Tool",
-                    (block as any).input ?? {},
-                  );
-                  if (summary) await onThinking(summary);
-                }
-              }
-            }
-          }
-          // Accumulate text (actual streaming is handled via stream_event below)
           const text = extractText(aMsg);
           if (text) {
             textParts.push(text);

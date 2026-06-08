@@ -6,7 +6,8 @@ A [Claude Code](https://claude.ai/claude-code) Skill that bridges personal WeCha
 
 ## Features
 
-- **Real-time progress updates** — see Claude's tool calls (🔧 Bash, 📖 Read, 🔍 Glob…) as they happen
+- **Clean output** — only Claude's text responses are shown in WeChat, tool calls run silently in the background
+- **Typing indicator** — WeChat shows "typing..." while Claude is processing
 - **Interrupt support** — send a new message mid-query to abort and redirect Claude
 - **System prompt** — set a persistent prompt via `/prompt` (e.g. "Reply in Chinese")
 - **Auto-approved tool access** — all tools run without manual approval for seamless operation
@@ -101,6 +102,7 @@ WeChat (phone) ←→ ilink bot API ←→ Node.js daemon ←→ Claude Code SDK
 - The daemon long-polls WeChat's ilink bot API for new messages
 - Messages are forwarded to Claude Code via `@anthropic-ai/claude-agent-sdk`
 - Tool calls and thinking previews are streamed back as Claude works
+- Claude's text output is streamed to WeChat in real-time; tool calls run silently
 - Responses are sent back to WeChat with automatic rate-limit retry
 - Platform-native service management keeps the daemon running (launchd on macOS, systemd/nohup on Linux)
 

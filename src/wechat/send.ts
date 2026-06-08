@@ -9,6 +9,24 @@ export function createSender(api: WeChatApi, botAccountId: string) {
     return `wcc-${Date.now()}-${++clientCounter}`;
   }
 
+  /** Send a "generating" status to trigger the typing indicator in WeChat. */
+  async function sendGenerating(toUserId: string, contextToken: string): Promise<void> {
+    const clientId = generateClientId();
+
+    const msg: OutboundMessage = {
+      from_user_id: botAccountId,
+      to_user_id: toUserId,
+      client_id: clientId,
+      message_type: MessageType.BOT,
+      message_state: MessageState.GENERATING,
+      context_token: contextToken,
+      item_list: [],
+    };
+
+    logger.debug('Sending generating status', { toUserId, clientId });
+    await api.sendMessage({ msg });
+  }
+
   async function sendText(toUserId: string, contextToken: string, text: string): Promise<void> {
     const clientId = generateClientId();
 
@@ -34,5 +52,5 @@ export function createSender(api: WeChatApi, botAccountId: string) {
     logger.info('Text message sent', { toUserId, clientId });
   }
 
-  return { sendText };
+  return { sendText, sendGenerating };
 }
