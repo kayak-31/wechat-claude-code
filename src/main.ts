@@ -23,7 +23,7 @@ import { MessageType, type WeixinMessage } from './wechat/types.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_MESSAGE_LENGTH = 2048;
+const MAX_MESSAGE_LENGTH = 4000;
 
 // Extensions eligible for auto-push when detected in Claude's response
 const AUTO_PUSH_EXTENSIONS = new Set([
@@ -495,7 +495,7 @@ async function sendToClaude(
     let lastSentTime = Date.now();
 
     const MIN_BATCH_FLUSH_LEN = 30;
-    const SOFT_FLUSH_LIMIT = 1800;
+    const SOFT_FLUSH_LIMIT = 3800;
 
     /** Check if buffer ends at a structural boundary (double newline or horizontal rule). */
     function endsWithStructuralBoundary(text: string): boolean {
