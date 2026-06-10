@@ -110,7 +110,7 @@ export async function claudeQuery(options: QueryOptions): Promise<QueryResult> {
   let child: ChildProcess | undefined;
   let settled = false;
 
-  const QUERY_TIMEOUT_MS = 30 * 60 * 1000;
+  const QUERY_TIMEOUT_MS = 60 * 60 * 1000;
 
   return new Promise<QueryResult>((resolve) => {
     const finish = (result: QueryResult) => {
@@ -144,7 +144,7 @@ export async function claudeQuery(options: QueryOptions): Promise<QueryResult> {
       finish({
         text: partialText,
         sessionId,
-        error: partialText ? undefined : 'Claude query timed out after 5 minutes',
+        error: partialText ? undefined : 'Claude query timed out after 60 minutes',
       });
     }, QUERY_TIMEOUT_MS);
 
