@@ -16,7 +16,7 @@ import { routeCommand, type CommandContext, type CommandResult } from './command
 import { claudeQuery, type QueryOptions } from './claude/provider.js';
 import { loadConfig, saveConfig } from './config.js';
 import { logger } from './logger.js';
-import { DATA_DIR } from './constants.js';
+import { DATA_DIR, DEFAULT_WORKING_DIR } from './constants.js';
 import { MessageType, type WeixinMessage } from './wechat/types.js';
 
 // ---------------------------------------------------------------------------
@@ -409,21 +409,165 @@ async function handleMessage(
     // Not handled, treat as normal message (fall through)
   }
 
-  // -- Normal message -> Claude --
+  // -- Normal message -> Claude (with optional clarification layer) --
 
   if (!userText && !imageItem && !fileItem) {
     await sender.sendText(fromUserId, contextToken, '暂不支持此类型消息，请发送文字、语音、图片或文件');
     return;
   }
 
+  // -- Clarification check for non-command text messages --
+  if (userText && !userText.startsWith('/')) {
+    const clarified = await checkClarification(
+      userText, account, session, sessionStore, sender, config, contextToken,
+    );
+    if (clarified) return; // Sent clarification question, done
+  }
+
+  // -- Augment prompt if answering a clarification question --
+  let effectivePrompt = userText;
+  if (session.clarifying) {
+    if (session.pendingTask) {
+      effectivePrompt = `【之前的问题】${session.pendingTask}\n【你的回答】${userText}\n\n请根据我的回答执行之前的任务。`;
+      // Reset clarification state
+      session.clarifying = false;
+      session.pendingTask = undefined;
+      sessionStore.save(account.accountId, session);
+    }
+  }
+
   await sendToClaude(
-    userText, imageItem, fileItem, fromUserId, contextToken,
+    effectivePrompt, imageItem, fileItem, fromUserId, contextToken,
     account, session, sessionStore, sender, config, activeControllers,
   );
 }
 
 function extractTextFromItems(items: NonNullable<WeixinMessage['item_list']>): string {
   return items.map((item) => extractText(item)).filter(Boolean).join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Clarification layer
+// ---------------------------------------------------------------------------
+
+/** System prompt for the classification call. */
+const CLARIFY_SYSTEM_PROMPT = `你是消息分类器。判断用户请求是否清晰明确。
+
+判断标准：
+- 清晰：有明确的任务目标，可以直接执行（如“翻译这段文字”、“写一个Python排序算法”、“总结这篇文章”）
+- 模糊：缺乏关键信息，无法直接执行（如“帮我整理操作系统复习重难点”、“帮我写点什么”、“分析一下”）
+
+如果清晰，输出格式：[OK]<原请求内容>
+如果模糊，直接输出 1-2 个简短的中文澄清问题，不要解释，不要输出 [OK]。
+
+示例：
+输入："帮我整理操作系统复习重难点"
+输出：你想复习哪个方向？(1)期末考试 (2)考研 (3)面试准备
+
+输入："帮我写点什么"
+输出：你想让我帮你写什么类型的内容？(1)文章/报告 (2)代码 (3)邮件/消息
+
+输入："用Python写一个快速排序"
+输出：[OK]用Python写一个快速排序`;
+
+/** Result of the classification step. */
+interface ClarifyResult {
+  mode: 'clarify' | 'execute';
+  text: string;
+}
+
+/**
+ * Send a lightweight classification prompt to Claude to determine
+ * if the user's request is clear enough to execute directly.
+ * Returns 'clarify' with the question text, 'execute' with the original prompt,
+ * or null on failure (falls through to normal execution).
+ */
+async function classifyMessage(
+  userText: string,
+  config: ReturnType<typeof loadConfig>,
+): Promise<ClarifyResult | null> {
+  // Heuristic: very short messages or slash commands skip classification
+  if (userText.length < 6 || userText.startsWith('/')) {
+    return { mode: 'execute', text: userText };
+  }
+
+  try {
+    const result = await claudeQuery({
+      prompt: CLARIFY_SYSTEM_PROMPT + '\n\n用户消息：' + userText,
+      cwd: DEFAULT_WORKING_DIR.replace(/^~/, homedir()),
+      systemPrompt: '你是一个简洁的消息分类器。直接输出结果，不要解释。',
+      abortController: new AbortController(),
+    });
+
+    const responseText = result.text.trim();
+
+    if (responseText.startsWith('[OK]')) {
+      // Extract the original prompt after [OK]
+      const originalPrompt = responseText.slice(2).trim() || userText;
+      return { mode: 'execute', text: originalPrompt };
+    }
+
+    // Vague request — return the clarification question
+    return { mode: 'clarify', text: responseText };
+  } catch (err) {
+    // Classification failed — fall through to normal execution
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn('Classification failed, falling through to normal execution', { error: msg });
+    return null;
+  }
+}
+
+/**
+ * Check if a message needs clarification before execution.
+ * If the request is vague and clarification is enabled, send a question
+ * to the user and return true (caller should return early).
+ * If clear or disabled, return false (caller continues to sendToClaude).
+ */
+async function checkClarification(
+  userText: string,
+  account: AccountData,
+  session: Session,
+  sessionStore: ReturnType<typeof createSessionStore>,
+  sender: ReturnType<typeof createSender>,
+  config: ReturnType<typeof loadConfig>,
+  contextToken: string,
+): Promise<boolean> {
+  // Skip if clarification is disabled
+  if (!config.enableClarification) return false;
+
+  // Skip if already in clarification mode (user is answering)
+  if (session.clarifying) return false;
+
+  // Skip slash commands (already handled above)
+  if (userText.startsWith('/')) return false;
+
+  // Skip messages with images or files (classification is text-only)
+  // These are usually concrete requests anyway
+
+  const classification = await classifyMessage(userText, config);
+
+  if (classification === null) {
+    // Classification failed — fall through to normal execution
+    return false;
+  }
+
+  if (classification.mode === 'execute') {
+    // Request is clear — no clarification needed
+    return false;
+  }
+
+  // Request is vague — enter clarification mode
+  session.clarifying = true;
+  session.pendingTask = userText;
+  sessionStore.save(account.accountId, session);
+
+  await sender.sendText(
+    account.accountId,
+    contextToken,
+    `💡 我来帮你：\n\n${classification.text}`,
+  );
+
+  return true;
 }
 
 async function sendToClaude(

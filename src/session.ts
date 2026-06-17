@@ -22,6 +22,9 @@ export interface Session {
   state: SessionState;
   chatHistory: ChatMessage[];
   maxHistoryLength?: number;
+  // Clarification layer state
+  clarifying?: boolean;
+  pendingTask?: string;
 }
 
 const DEFAULT_MAX_HISTORY = 100;
