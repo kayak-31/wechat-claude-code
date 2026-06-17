@@ -561,11 +561,21 @@ async function checkClarification(
   session.pendingTask = userText;
   sessionStore.save(account.accountId, session);
 
-  await sender.sendText(
-    account.accountId,
-    contextToken,
-    `💡 我来帮你：\n\n${classification.text}`,
-  );
+  try {
+    await sender.sendText(
+      account.accountId,
+      contextToken,
+      `💡 我来帮你：\n\n${classification.text}`,
+    );
+  } catch (err) {
+    // Rate limit or other send failure — reset and fall through
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn('Failed to send clarification question, falling through to execution', { error: msg });
+    session.clarifying = false;
+    session.pendingTask = undefined;
+    sessionStore.save(account.accountId, session);
+    return false;
+  }
 
   return true;
 }
