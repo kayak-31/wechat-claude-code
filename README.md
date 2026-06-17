@@ -54,11 +54,17 @@ npm run setup
 
 ### 2. 启动服务
 
+**macOS / Linux：**
 ```bash
 npm run daemon -- start
 ```
-
 macOS 下自动注册 launchd，开机自启、崩溃自动重启。
+
+**Windows：**
+双击项目根目录的 `start.bat`，或在终端执行：
+```bash
+node dist\main.js start
+```
 
 ### 3. 开始聊天
 
@@ -72,6 +78,8 @@ npm run daemon -- stop     # 停止服务
 npm run daemon -- restart  # 重启服务（更新代码后使用）
 npm run daemon -- logs     # 查看日志
 ```
+
+> **Windows 用户**：以上 daemon 命令不可用。直接 `Ctrl+C` 停止，重新运行 `start.bat` 重启，日志在 `%USERPROFILE%\.wechat-claude-code\logs\` 目录。
 
 ## 微信端命令
 
@@ -110,9 +118,11 @@ npm run daemon -- logs     # 查看日志
 ## 前置条件
 
 - Node.js >= 18
-- macOS 或 Linux
+- macOS / Linux / Windows
 - 个人微信账号
 - 已安装 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI 并完成认证
+
+> **Windows 用户**：daemon.sh 不支持 Windows，请使用项目根目录的 `start.bat` 一键启动，或手动执行 `node dist/main.js start`。
 
 > **提示：** Claude Code 支持第三方 API 提供商（OpenRouter、AWS Bedrock 等），设置 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_API_KEY` 即可。
 
