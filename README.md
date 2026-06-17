@@ -1,5 +1,8 @@
 # WeChat Claude Code Bridge
 
+> **Forked from [Wechat-ggGitHub/wechat-claude-code](https://github.com/Wechat-ggGitHub/wechat-claude-code)**  
+> 新增：Windows 支持、模糊请求澄清层、消息限频崩溃修复
+
 <p align="center">
   <strong>Chat with Claude Code in WeChat, just like texting a friend</strong>
 </p>
